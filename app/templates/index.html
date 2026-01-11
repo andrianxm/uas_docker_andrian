@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureVault | Password Manager AES</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+
+    <div class="container d-flex align-items-center justify-content-center min-vh-100">
+        <div class="card vault-card animate__animated animate__fadeIn">
+            <div class="card-header text-center border-0 bg-transparent pt-4">
+                <div class="vault-icon mb-2">🔐</div>
+                <h3 class="fw-bold text-white">Data Secure Vault</h3>
+                <p class="text-info small">AES-128 Bit Cloud Encryption</p>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="mb-3">
+                    <label class="form-label text-white-50">Sensitive Data</label>
+                    <div class="input-group">
+                        <input type="text" id="textInput" class="form-control custom-input"
+                            placeholder="Masukkan data atau pesan ">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label text-white-50">Master Secret Key (16 chars)</label>
+                    <div class="input-group">
+                        <input type="password" id="keyInput" class="form-control custom-input"
+                            placeholder="Kunci keamanan...">
+                        <button class="btn btn-outline-secondary" type="button"
+                            onclick="toggleView('keyInput', 'toggleKeyIcon')">
+                            <i class="bi bi-eye-slash text-white" id="toggleKeyIcon"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="generateKey()" title="Generate Key">
+                            <i class="bi bi-dice-5"></i> Gen
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-6">
+                        <button onclick="process('encrypt')" class="btn btn-vault-primary w-100">LOCK (ENCRYPT)</button>
+                    </div>
+                    <div class="col-6">
+                        <button onclick="process('decrypt')" class="btn btn-vault-secondary w-100">UNLOCK
+                            (DECRYPT)</button>
+                    </div>
+                </div>
+
+                <div id="resultBox" class="mt-4 d-none">
+                    <div class="result-container">
+                        <small class="text-info d-block mb-1 text-uppercase fw-bold">Vault Output:</small>
+                        <code id="resultText" class="text-white break-all"></code>
+                        <button class="btn-copy" onclick="copyResult()" title="Copy to Clipboard">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer border-0 text-center pb-4">
+                <small class="text-white-50">Containerized with Docker & Redis Log System</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fungsi Show/Hide Khusus Master Key
+        function toggleView(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.replace("bi-eye-slash", "bi-eye");
+            } else {
+                input.type = "password";
+                icon.classList.replace("bi-eye", "bi-eye-slash");
+            }
+        }
+
+        function generateKey() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+            let key = "";
+            // AES-128 butuh 16 karakter
+            for (let i = 0; i < 16; i++) {
+                key += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('keyInput').value = key;
+
+            // Notifikasi modern
+            Swal.fire({
+                icon: 'success',
+                title: 'Master Key Generated!',
+                text: 'Simpan kunci ini di tempat aman.',
+                background: '#161b22',
+                color: '#fff',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000
+            });
+        }
+
+        async function process(action) {
+            const text = document.getElementById('textInput').value;
+            const key = document.getElementById('keyInput').value;
+
+            if (!text || !key) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Oops...',
+                    text: 'Harap isi data dan master key!',
+                    background: '#161b22',
+                    color: '#fff'
+                });
+                return;
+            }
+
+            const url = action === 'encrypt' ? '/encrypt' : '/decrypt';
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, key })
+                });
+                const data = await response.json();
+
+                const resultValue = data.ciphertext || data.result;
+
+                document.getElementById('resultBox').classList.remove('d-none');
+                document.getElementById('resultText').innerText = resultValue;
+
+                // Logika Notifikasi Berdasarkan Hasil (Berhasil/Gagal)
+                if (resultValue.includes("Error")) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Akses Ditolak!',
+                        text: 'Master Key salah atau data rusak.',
+                        background: '#161b22',
+                        color: '#fff'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: action === 'encrypt' ? 'Data Locked!' : 'Data Unlocked!',
+                        background: '#161b22',
+                        color: '#fff',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Connection Failed', background: '#161b22', color: '#fff' });
+            }
+        }
+
+        function copyResult() {
+            const text = document.getElementById('resultText').innerText;
+            navigator.clipboard.writeText(text);
+            Swal.fire({
+                icon: 'info',
+                title: 'Copied!',
+                background: '#161b22',
+                color: '#fff',
+                toast: true,
+                position: 'bottom-end',
+                showConfirmButton: false,
+                timer: 1500
+            });
+        }
+    </script>
+</body>
+
+</html>

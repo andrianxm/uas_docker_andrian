@@ -1,0 +1,24 @@
+services:
+  #API service
+  api-service:
+    build: .
+    image: andrianxm/uas_docker_andrian-api-service:latest
+    container_name: python-api-container
+    ports:
+      - "5000:5000"
+    environment:
+      - REDIS_HOST=redis-db
+    depends_on:
+      - redis-db
+
+  #database log
+  redis-db:
+    image: redis:alpine
+    container_name: redis-log-container
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
